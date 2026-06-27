@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Myntra Reconciliation Tool — D'Chica</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --navy:#1F4E79;--pink:#E91E8C;--gold:#F59E0B;
+  --green:#16a34a;--red:#dc2626;--orange:#EA580C;
+  --bg:#F0F4F8;--card:#fff;--border:#E2E8F0;
+  --text:#1E293B;--muted:#64748B;--light:#F8FAFC;
+}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:13px;min-height:100vh}
+
+/* HEADER */
+.header{background:var(--navy);padding:0 20px;height:52px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;box-shadow:0 2px 8px rgba(0,0,0,.2)}
+.header-left{display:flex;align-items:center;gap:12px}
+.logo{font-size:18px;font-weight:800;color:#fff;letter-spacing:-.5px}
+.logo span{color:var(--pink)}
+.header-subtitle{font-size:11px;color:rgba(255,255,255,.5);letter-spacing:.3px}
+.header-right{font-size:11px;color:rgba(255,255,255,.4)}
+
+/* UPLOAD SCREEN */
+.upload-screen{max-width:800px;margin:40px auto;padding:0 20px}
+.upload-title{text-align:center;margin-bottom:32px}
+.upload-title h2{font-size:22px;font-weight:700;color:var(--navy);margin-bottom:6px}
+.upload-title p{color:var(--muted);font-size:13px}
+
+.file-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:24px}
+.file-card{background:var(--card);border:2px dashed var(--border);border-radius:12px;padding:16px;cursor:pointer;transition:all .2s;position:relative}
+.file-card:hover{border-color:var(--pink);background:#FFF0F8}
+.file-card.loaded{border-style:solid;border-color:var(--green);background:#F0FDF4}
+.file-card.required-mark{border-color:var(--navy)}
+.file-icon{font-size:24px;margin-bottom:8px}
+.file-label{font-weight:700;font-size:12px;color:var(--navy);margin-bottom:3px}
+.file-desc{font-size:11px;color:var(--muted);line-height:1.4}
+.file-status{font-size:11px;margin-top:8px;font-weight:600}
+.file-status.ok{color:var(--green)}
+.file-status.pending{color:var(--muted)}
+.file-input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.badge-req{background:var(--navy);color:#fff;font-size:9px;padding:2px 6px;border-radius:8px;margin-left:4px}
+.badge-opt{background:#e2e8f0;color:var(--muted);font-size:9px;padding:2px 6px;border-radius:8px;margin-left:4px}
+
+.run-btn{width:100%;padding:14px;background:var(--pink);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.3px}
+.run-btn:hover:not(:disabled){background:#c2187d;transform:translateY(-1px)}
+.run-btn:disabled{background:#CBD5E1;cursor:not-allowed}
+.run-note{text-align:center;font-size:11px;color:var(--muted);margin-top:10px}
+
+/* MAIN TOOL */
+.tool{display:none}
+.tabs{background:var(--card);border-bottom:2px solid var(--border);display:flex;padding:0 16px;gap:2px;position:sticky;top:52px;z-index:90;overflow-x:auto}
+.tab{padding:12px 16px;cursor:pointer;font-size:12px;font-weight:600;color:var(--muted);border-bottom:3px solid transparent;margin-bottom:-2px;white-space:nowrap;transition:color .15s}
+.tab.active{color:var(--navy);border-bottom-color:var(--pink)}
+.tab:hover{color:var(--navy)}
+.tab-badge{background:var(--pink);color:#fff;font-size:9px;padding:1px 5px;border-radius:8px;margin-left:4px}
+
+.content{padding:16px;max-width:1400px;margin:0 auto}
+.back-btn{background:var(--navy);color:#fff;border:none;padding:6px 14px;border-radius:6px;font-size:11px;cursor:pointer;margin-bottom:14px;font-weight:600}
+
+/* CARDS */
+.kpi-row{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:14px}
+.kpi{background:var(--card);border-radius:10px;padding:14px;border-left:4px solid var(--navy);box-shadow:0 1px 3px rgba(0,0,0,.06)}
+.kpi.g{border-left-color:var(--green)}.kpi.r{border-left-color:var(--red)}.kpi.p{border-left-color:var(--pink)}.kpi.o{border-left-color:var(--orange)}.kpi.gold{border-left-color:var(--gold)}
+.kpi-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin-bottom:5px}
+.kpi-val{font-size:20px;font-weight:800;color:var(--navy);line-height:1}
+.kpi.g .kpi-val{color:var(--green)}.kpi.r .kpi-val{color:var(--red)}.kpi.p .kpi-val{color:var(--pink)}.kpi.gold .kpi-val{color:var(--gold)}
+.kpi-sub{font-size:10px;color:var(--muted);margin-top:3px}
+
+.section-hdr{font-size:13px;font-weight:700;color:var(--navy);margin:14px 0 8px;display:flex;align-items:center;gap:6px}
+.section-hdr::before{content:'';display:block;width:4px;height:16px;background:var(--pink);border-radius:2px}
+
+.panel{background:var(--card);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden;margin-bottom:14px}
+.panel-hdr{background:var(--navy);color:#fff;padding:10px 14px;font-size:12px;font-weight:700;display:flex;justify-content:space-between;align-items:center}
+.panel-body{padding:14px}
+
+/* TABLE */
+.tbl-wrap{background:var(--card);border-radius:10px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.tbl-toolbar{padding:10px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;background:var(--light);border-bottom:1px solid var(--border)}
+.tbl-toolbar input,.tbl-toolbar select{padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;outline:none;background:#fff}
+.tbl-toolbar input{width:200px}.tbl-toolbar select{min-width:130px}
+.tbl-cnt{margin-left:auto;font-size:11px;color:var(--muted);font-weight:600}
+.tbl-scroll{max-height:440px;overflow-y:auto}
+table{width:100%;border-collapse:collapse;font-size:11px}
+th{background:var(--navy);color:#fff;padding:8px 10px;text-align:left;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;position:sticky;top:0;z-index:5}
+td{padding:7px 10px;border-bottom:1px solid #F1F5F9;white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis}
+tr:nth-child(even) td{background:#F8FAFC}
+tr:hover td{background:#EFF6FF}
+.r{text-align:right}.c{text-align:center}
+.pager{padding:8px 14px;font-size:11px;color:var(--muted);text-align:center;display:flex;justify-content:center;gap:8px;align-items:center}
+.pager button{padding:4px 10px;border:1px solid var(--border);border-radius:5px;background:#fff;cursor:pointer;font-size:11px}
+.pager button:disabled{opacity:.4;cursor:not-allowed}
+
+/* BADGES */
+.b{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700}
+.b-g{background:#DCFCE7;color:#15803D}.b-r{background:#FEE2E2;color:#B91C1C}
+.b-y{background:#FEF9C3;color:#854D0E}.b-b{background:#DBEAFE;color:#1D4ED8}
+.b-p{background:#FCE7F3;color:#BE185D}.b-gr{background:#F1F5F9;color:#475569}
+.b-o{background:#FFEDD5;color:#C2410C}
+
+/* SETTLE GRID */
+.settle-2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.srow{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px solid #F1F5F9;font-size:12px}
+.srow:last-child{border:none;font-weight:700;font-size:13px;padding-top:10px}
+.sv-g{color:var(--green)}.sv-r{color:var(--red)}
+
+.alert{padding:10px 14px;border-radius:8px;font-size:12px;margin-bottom:8px;border-left:4px solid}
+.alert-r{background:#FFF1F2;border-color:var(--red)}.alert-y{background:#FEFCE8;border-color:var(--gold)}.alert-g{background:#F0FDF4;border-color:var(--green)}.alert-b{background:#EFF6FF;border-color:#3B82F6}
+
+@media(max-width:600px){.file-grid{grid-template-columns:1fr}.settle-2{grid-template-columns:1fr}.kpi-row{grid-template-columns:1fr 1fr}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">D'<span>Chica</span></div>
+    <div class="header-subtitle">Myntra Reconciliation Tool</div>
+  </div>
+  <div class="header-right" id="hdr-info">Upload files to begin</div>
+</div>
+
+<!-- UPLOAD SCREEN -->
+<div class="upload-screen" id="upload-screen">
+  <div class="upload-title">
+    <h2>Upload Myntra Reports</h2>
+    <p>Tool khud saari files match karega aur full reconciliation dikhayega</p>
+  </div>
+
+  <div class="file-grid">
+    <div class="file-card required-mark" id="card-sale" onclick="document.getElementById('inp-sale').click()">
+      <input type="file" id="inp-sale" accept=".xlsx,.xls,.csv" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="loadFile('sale',this)">
+      <div class="file-icon">📦</div>
+      <div class="file-label">Sale / Order Report <span class="badge-req">Required</span></div>
+      <div class="file-desc">Monthly sale report — order release ID, SKU, status (C/F/PK/SH/DL), order & delivery dates, seller price</div>
+      <div class="file-status pending" id="st-sale">⬆ Click to upload</div>
+    </div>
+
+    <div class="file-card required-mark" id="card-fwd" onclick="document.getElementById('inp-fwd').click()">
+      <input type="file" id="inp-fwd" accept=".xlsx,.xls,.csv" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="loadFile('fwd',this)">
+      <div class="file-icon">💰</div>
+      <div class="file-label">Forward Settlement <span class="badge-req">Required</span></div>
+      <div class="file-desc">Payout report for delivered orders — commission, logistics, TCS, TDS, net payout per order</div>
+      <div class="file-status pending" id="st-fwd">⬆ Click to upload</div>
+    </div>
+
+    <div class="file-card" id="card-ret" onclick="document.getElementById('inp-ret').click()">
+      <input type="file" id="inp-ret" accept=".xlsx,.xls,.csv" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="loadFile('ret',this)">
+      <div class="file-icon">↩️</div>
+      <div class="file-label">Return Settlement <span class="badge-opt">Optional</span></div>
+      <div class="file-desc">Settlement for returned/RTO orders — commission reversed, logistics deducted</div>
+      <div class="file-status pending" id="st-ret">⬆ Click to upload</div>
+    </div>
+
+    <div class="file-card" id="card-rtn" onclick="document.getElementById('inp-rtn').click()">
+      <input type="file" id="inp-rtn" accept=".xlsx,.xls,.csv" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="loadFile('rtn',this)">
+      <div class="file-icon">🔄</div>
+      <div class="file-label">Returns Report <span class="badge-opt">Optional</span></div>
+      <div class="file-desc">MDirect returns report — per-unit return detail, return reason, is_refunded status</div>
+      <div class="file-status pending" id="st-rtn">⬆ Click to upload</div>
+    </div>
+  
+    <div class="file-card" id="card-cost" onclick="document.getElementById('inp-cost').click()">
+      <input type="file" id="inp-cost" accept=".xlsx,.xls,.csv" style="position:absolute;opacity:0;width:100%;height:100%;cursor:pointer" onchange="loadFile('cost',this)">
+      <div class="file-icon">💹</div>
+      <div class="file-label">Costing Sheet <span class="badge-opt">Optional</span></div>
+      <div class="file-desc">Internal D'Chica costing file — 2 columns: SKU + Cost Price. Profit = Net Payout − (Cost × Qty) calculate hoga</div>
+      <div class="file-status pending" id="st-cost">⬆ Click to upload</div>
+    </div>
+  </div>
+
+  <button class="run-btn" id="run-btn" onclick="runRecon()" disabled>
+    🔄 Run Reconciliation
+  </button>
+  <div class="run-note">Sale Report + Forward Settlement required. Return files optional but recommended.</div>
+</div>
+
+<!-- MAIN TOOL -->
+<div class="tool" id="tool">
+  <div class="tabs" id="tabs">
+    <div class="tab active" onclick="showTab('dashboard',this)">📊 Dashboard</div>
+    <div class="tab" onclick="showTab('settlement',this)">💰 Settlement</div>
+    <div class="tab" onclick="showTab('recon',this)">🔗 Sale vs Payout <span class="tab-badge" id="tb-recon">0</span></div>
+    <div class="tab" onclick="showTab('returns',this)">↩️ Returns <span class="tab-badge" id="tb-ret">0</span></div>
+    <div class="tab" onclick="showTab('sku',this)">📋 SKU + Profit</div>
+    <div class="tab" onclick="showTab('upload',this)">⬆ New Files</div>
+  </div>
+
+  <div class="content">
+    <div id="pane-dashboard"></div>
+    <div id="pane-settlement" style="display:none"></div>
+    <div id="pane-recon" style="display:none"></div>
+    <div id="pane-returns" style="display:none"></div>
+    <div id="pane-sku" style="display:none"></div>
+    <div id="pane-upload" style="display:none">
+      <button class="back-btn" onclick="resetTool()">← Upload New Files</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const FILES = {sale:null, fwd:null, ret:null, rtn:null, cost:null};
+let DATA = {};
+let PAGE = {recon:0, returns:0, sku:0};
+const PER = 100;
+
+// STATUS MAPS
+const MAY_STATUS = {C:'Confirmed',F:'Cancelled',PK:'Packed',WP:'Waiting for Pickup',SH:'Shipped',DL:'Delivered',RT:'Returned',RTO:'RTO'};
+const STATUS_COLOR = {Confirmed:'b-b',Cancelled:'b-r',Packed:'b-p','Waiting for Pickup':'b-gr',Shipped:'b-o',Delivered:'b-g',Returned:'b-r',RTO:'b-r'};
+
+function parseExcel(file) {
+  return new Promise((res,rej)=>{
+    const r=new FileReader();
+    r.onload=e=>{
+      try{
+        const wb=XLSX.read(e.target.result,{type:'binary',cellDates:true});
+        const ws=wb.Sheets[wb.SheetNames[0]];
+        const data=XLSX.utils.sheet_to_json(ws,{defval:''});
+        res(data);
+      }catch(err){rej(err)}
+    };
+    r.readAsBinaryString(file);
+  });
+}
+
+async function loadFile(key, input) {
+  const file = input.files[0];
+  if (!file) return;
+  const st = document.getElementById('st-'+key);
+  const card = document.getElementById('card-'+key);
+  st.textContent = '⏳ Loading...';
+  st.className = 'file-status pending';
+  try {
+    FILES[key] = await parseExcel(file);
+    st.textContent = `✅ ${file.name} (${FILES[key].length} rows)`;
+    st.className = 'file-status ok';
+    card.classList.add('loaded');
+  } catch(e) {
+    st.textContent = '❌ Error reading file';
+    st.className = 'file-status';
+  }
+  document.getElementById('run-btn').disabled = !(FILES.sale && FILES.fwd);
+}
+
+function col(row, ...keys) {
+  for (const k of keys) {
+    const v = row[k];
+    if (v !== undefined && v !== '') return v;
+  }
+  return null;
+}
+
+function fmt(v, type='num') {
+  if (v===null||v===undefined||v==='') return '—';
+  if (type==='inr') return '₹' + parseFloat(v).toLocaleString('en-IN',{minimumFractionDigits:2,maximumFractionDigits:2});
+  if (type==='pct') return parseFloat(v).toFixed(2)+'%';
+  if (type==='date') {
+    if (!v) return '—';
+    try {
+      const d = v instanceof Date ? v : new Date(v);
+      if (isNaN(d)) return String(v).slice(0,10);
+      return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short',year:'numeric'});
+    } catch { return String(v).slice(0,10); }
+  }
+  return v;
+}
+
+function badge(text, cls) {
+  if (!text||text==='—') return '<span style="color:#94a3b8">—</span>';
+  return `<span class="b ${cls||'b-gr'}">${text}</span>`;
+}
+
+function statusBadge(status) {
+  const mapped = MAY_STATUS[status] || status;
+  const cls = STATUS_COLOR[mapped] || 'b-gr';
+  return badge(mapped||'—', cls);
+}
+
+function inr(v) { return fmt(v,'inr'); }
+function neg(v) { return v<0 ? `<span style="color:var(--red)">${inr(v)}</span>` : inr(v); }
+function pos(v) { return v>0 ? `<span style="color:var(--green)">${inr(v)}</span>` : `<span style="color:var(--red)">${inr(v)}</span>`; }
+
+// ── MAIN RECONCILIATION ENGINE ────────────────────────────────
+function runRecon() {
+  const sale = FILES.sale;
+  const fwd  = FILES.fwd;
+  const ret  = FILES.ret || [];
+  const rtn  = FILES.rtn || [];
+
+  // Detect column names dynamically
+  const sRow = sale[0]||{};
+  const fRow = fwd[0]||{};
+
+  const sOID  = Object.keys(sRow).find(k=>/order.?release.?id/i.test(k)) || 'order release id';
+  const sSKU  = Object.keys(sRow).find(k=>/seller.?sku/i.test(k)) || 'seller sku code';
+  const sStat = Object.keys(sRow).find(k=>/order.?status/i.test(k)) || 'order status';
+  const sDate = Object.keys(sRow).find(k=>/created.?on/i.test(k)) || 'created on';
+  const sDel  = Object.keys(sRow).find(k=>/delivered.?on/i.test(k)) || 'delivered on';
+  const sPrice= Object.keys(sRow).find(k=>/seller.?price/i.test(k)) || 'seller price';
+  const sAmt  = Object.keys(sRow).find(k=>/final.?amount/i.test(k)) || 'final amount';
+  const sStyle= Object.keys(sRow).find(k=>/style.?name/i.test(k)) || 'style name';
+  const sState= Object.keys(sRow).find(k=>/^state$/i.test(k)) || 'state';
+  const sRTO  = Object.keys(sRow).find(k=>/rto.?creation/i.test(k)) || 'rto creation date';
+
+  const fOID  = Object.keys(fRow).find(k=>/order.?release.?id/i.test(k)) || 'order_release_id';
+  const fSKU  = Object.keys(fRow).find(k=>/dchica.?sku/i.test(k)) || 'Dchica SKU';
+  const fMSKU = Object.keys(fRow).find(k=>/master.?sku/i.test(k)) || 'Master SKU';
+  const fAmt  = Object.keys(fRow).find(k=>/seller.?product.?amount/i.test(k)) || 'seller_product_amount';
+  const fComm = Object.keys(fRow).find(k=>/total.?commission/i.test(k) && !/pct|perce/i.test(k)) || 'total_commission';
+  const fCommP= Object.keys(fRow).find(k=>/commission.?perce|commission.?pct/i.test(k)) || 'commission_percentage';
+  const fLog  = Object.keys(fRow).find(k=>/total.?logist/i.test(k)) || 'total_logistics_deduction';
+  const fTCS  = Object.keys(fRow).find(k=>/tcs/i.test(k)) || 'tcs_amount';
+  const fTDS  = Object.keys(fRow).find(k=>/tds/i.test(k)) || 'tds_amount';
+  const fNet  = Object.keys(fRow).find(k=>/total.?actual.?settlement/i.test(k)) || 'total_actual_settlement';
+  const fPend = Object.keys(fRow).find(k=>/pending.?settlement/i.test(k)) || 'amount_pending_settlement';
+  const fDel  = Object.keys(fRow).find(k=>/delivery.?date/i.test(k)) || 'delivery_date';
+
+  // Settlement date for payout
+  const fSettDates = Object.keys(fRow).filter(k=>/settlement.?date/i.test(k));
+
+  function getPayoutDate(row, cols) {
+    const dates = cols.map(c=>row[c]).filter(v=>v).map(v=>{
+      try{const d=new Date(v);return isNaN(d)?null:d}catch{return null}
+    }).filter(Boolean);
+    if (!dates.length) return null;
+    return new Date(Math.min(...dates.map(d=>d.getTime())));
+  }
+
+  // Sale map
+  const saleMap = {};
+  sale.forEach(r => {
+    const oid = String(col(r, sOID)||'').trim();
+    if (oid) {
+      const raw = r[sStat]||'';
+      const statusLabel = MAY_STATUS[raw] || raw;
+      saleMap[oid] = {
+        oid, sku:r[sSKU]||'', style:r[sStyle]||'', state:r[sState]||'',
+        statusRaw:raw, status:statusLabel,
+        orderDate:r[sDate]||'', deliveredDate:r[sDel]||'', rtoDate:r[sRTO]||'',
+        price:parseFloat(r[sPrice])||0, finalAmt:parseFloat(r[sAmt])||0
+      };
+    }
+  });
+
+  // Fwd settlement map
+  const fwdMap = {};
+  let fwdTotAmt=0, fwdTotComm=0, fwdTotLog=0, fwdTotTCS=0, fwdTotTDS=0, fwdTotNet=0, fwdTotPend=0;
+  fwd.forEach(r => {
+    const oid = String(col(r,fOID)||'').trim();
+    if (!oid) return;
+    const pDate = getPayoutDate(r, fSettDates);
+    const net = parseFloat(r[fNet])||0;
+    const comm = parseFloat(r[fComm])||0;
+    const log = parseFloat(r[fLog])||0;
+    const tcs = parseFloat(r[fTCS])||0;
+    const tds = parseFloat(r[fTDS])||0;
+    const amt = parseFloat(r[fAmt])||0;
+    const pend = parseFloat(r[fPend])||0;
+    fwdTotAmt+=amt; fwdTotComm+=comm; fwdTotLog+=log;
+    fwdTotTCS+=tcs; fwdTotTDS+=tds; fwdTotNet+=net; fwdTotPend+=pend;
+    const dchicaSKU = r[fSKU]||r[fMSKU]||'';
+    fwdMap[oid] = {oid, dchicaSKU, deliveryDate:r[fDel]||'', payoutDate:pDate,
+                   amt, comm, commPct:parseFloat(r[fCommP])||0, log, tcs, tds, net, pend};
+    // SKU aggregation
+    if (!DATA.skuFwd) DATA.skuFwd = {};
+    if (!DATA.skuFwd[dchicaSKU]) DATA.skuFwd[dchicaSKU]={fo:0,fa:0,fc:0,fl:0,fn:0};
+    const sf=DATA.skuFwd[dchicaSKU]; sf.fo++; sf.fa+=amt; sf.fc+=comm; sf.fl+=log; sf.fn+=net;
+  });
+
+  // Ret settlement
+  let retTotAmt=0, retTotComm=0, retTotLog=0, retTotTCS=0, retTotTDS=0, retTotNet=0;
+  DATA.skuRet = {};
+  ret.forEach(r => {
+    const oid = String(col(r,fOID)||'').trim();
+    const net=parseFloat(r[fNet]||r['total_settlement'])||0;
+    const comm=parseFloat(r[fComm])||0;
+    const log=parseFloat(r[fLog])||0;
+    const tcs=parseFloat(r[fTCS])||0;
+    const tds=parseFloat(r[fTDS])||0;
+    const amt=parseFloat(r[fAmt])||0;
+    const dchicaSKU=r[fSKU]||r[fMSKU]||'';
+    retTotAmt+=amt; retTotComm+=comm; retTotLog+=log; retTotTCS+=tcs; retTotTDS+=tds; retTotNet+=net;
+    if (!DATA.skuRet[dchicaSKU]) DATA.skuRet[dchicaSKU]={ro:0,rc:0,rn:0};
+    const sr=DATA.skuRet[dchicaSKU]; sr.ro++; sr.rc+=comm; sr.rn+=net;
+  });
+
+  // RECON: match sale vs fwd
+  const allOIDs = new Set([...Object.keys(saleMap), ...Object.keys(fwdMap)]);
+  const reconRows = [];
+  allOIDs.forEach(oid => {
+    const s = saleMap[oid];
+    const f = fwdMap[oid];
+    let match = s && f ? 'Matched ✓' : (s ? 'Sale Only' : 'Settlement Only');
+    let daysGap = null;
+    if (f && f.payoutDate) {
+      const delivDate = s?.deliveredDate ? new Date(s.deliveredDate) : (f.deliveryDate ? new Date(f.deliveryDate) : null);
+      if (delivDate && !isNaN(delivDate)) {
+        daysGap = Math.round((f.payoutDate - delivDate)/(1000*60*60*24));
+      }
+    }
+    reconRows.push({
+      oid, sku:s?.sku||f?.dchicaSKU||'',
+      statusRaw:s?.statusRaw||'', status:s?.status||'—',
+      orderDate:s?.orderDate||'', deliveredDate:s?.deliveredDate||'',
+      payoutDate:f?.payoutDate||'', daysGap,
+      price:s?.price||0, comm:f?.comm||0, net:f?.net||0, match
+    });
+  });
+
+  // Stat counts
+  const statCounts = {};
+  sale.forEach(r => {
+    const raw = r[sStat]||'Unknown';
+    const lbl = MAY_STATUS[raw]||raw;
+    statCounts[lbl] = (statCounts[lbl]||0)+1;
+  });
+
+  // Returns
+  const rtnRows = rtn.map(r => {
+    const isRef=r['is_refunded'];
+    return {
+      orderId:col(r,'order_id','order id')||'',
+      lineId:col(r,'order_line_id')||'',
+      sku:col(r,'seller_sku_code','seller sku code')||'',
+      status:col(r,'status')||'',
+      mode:col(r,'return_mode')||'',
+      reason:col(r,'return_reason')||'',
+      orderDate:col(r,'order_created_date')||'',
+      delivDate:col(r,'order_delivered_date')||'',
+      retDate:col(r,'return_created_date')||'',
+      refDate:col(r,'refunded_date')||'',
+      isRefunded:isRef===1||isRef==='1'||isRef===true?'YES':'NO',
+      qty:col(r,'quantity')||1
+    };
+  });
+
+
+  // Cost Price map from internal costing sheet
+  const costMap = {};
+  if (FILES.cost) {
+    FILES.cost.forEach(r => {
+      const keys = Object.keys(r);
+      const skuKey = keys.find(k=>/sku/i.test(k)||/master/i.test(k)) || keys[0];
+      const costKey = keys.find(k=>/cost|price|tp|rate/i.test(k) && !/sku/i.test(k)) || keys[1];
+      const sku = String(r[skuKey]||'').trim().split('/')[0].toUpperCase();
+      const cost = parseFloat(r[costKey]);
+      if (sku && !isNaN(cost)) costMap[sku] = cost;
+    });
+  }
+  DATA.costMap = costMap;
+  DATA = {
+    ...DATA,
+    saleCount: sale.length,
+    statCounts,
+    fwdCount: fwd.length,
+    retCount: ret.length,
+    rtnCount: rtn.length,
+    fwdTotAmt, fwdTotComm, fwdTotLog, fwdTotTCS, fwdTotTDS, fwdTotNet, fwdTotPend,
+    retTotAmt, retTotComm, retTotLog, retTotTCS, retTotTDS, retTotNet,
+    netTotal: fwdTotNet + retTotNet,
+    reconRows,
+    rtnRows,
+    costMap
+  };
+
+  document.getElementById('tb-recon').textContent = reconRows.filter(r=>r.match==='Matched ✓').length;
+  document.getElementById('tb-ret').textContent = rtnRows.length;
+  document.getElementById('hdr-info').textContent = `${sale.length} sale orders · ${fwd.length} settled · ₹${Math.round(DATA.netTotal).toLocaleString('en-IN')} net`;
+
+  document.getElementById('upload-screen').style.display='none';
+  document.getElementById('tool').style.display='block';
+
+  buildDashboard();
+  buildSettlement();
+  buildRecon();
+  buildReturns();
+  buildSKU();
+}
+
+// ── DASHBOARD ─────────────────────────────────────────────────
+function buildDashboard() {
+  const D = DATA;
+  const sc = D.statCounts || {};
+  let kpiHtml = `<div class="kpi-row">
+    <div class="kpi"><div class="kpi-lbl">Total Sale Orders</div><div class="kpi-val">${D.saleCount.toLocaleString()}</div><div class="kpi-sub">All statuses</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Delivered</div><div class="kpi-val">${(sc['Delivered']||0).toLocaleString()}</div><div class="kpi-sub">Status DL</div></div>
+    <div class="kpi" style="border-left-color:#1565C0"><div class="kpi-lbl">Confirmed</div><div class="kpi-val" style="color:#1565C0">${(sc['Confirmed']||0).toLocaleString()}</div><div class="kpi-sub">Status C</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Cancelled</div><div class="kpi-val">${(sc['Cancelled']||0).toLocaleString()}</div><div class="kpi-sub">Status F</div></div>
+    <div class="kpi o"><div class="kpi-lbl">Shipped</div><div class="kpi-val">${(sc['Shipped']||0).toLocaleString()}</div><div class="kpi-sub">Status SH</div></div>
+    <div class="kpi r"><div class="kpi-lbl">RTO</div><div class="kpi-val">${(sc['RTO']||0).toLocaleString()}</div><div class="kpi-sub">Return to origin</div></div>
+    <div class="kpi g"><div class="kpi-lbl">Net Payout (Fwd)</div><div class="kpi-val" style="font-size:16px">${'₹'+Math.round(D.fwdTotNet).toLocaleString('en-IN')}</div><div class="kpi-sub">${D.fwdCount} orders</div></div>
+    <div class="kpi r"><div class="kpi-lbl">Return Settlement</div><div class="kpi-val" style="font-size:16px">${'₹'+Math.round(D.retTotNet).toLocaleString('en-IN')}</div><div class="kpi-sub">${D.retCount} orders</div></div>
+    <div class="kpi" style="border-left-color:var(--navy)"><div class="kpi-lbl">NET RECEIVABLE</div><div class="kpi-val" style="font-size:16px;color:var(--navy)">${'₹'+Math.round(D.netTotal).toLocaleString('en-IN')}</div><div class="kpi-sub">Fwd + Ret combined</div></div>
+  </div>`;
+
+  const matched = D.reconRows.filter(r=>r.match==='Matched ✓').length;
+  const saleOnly = D.reconRows.filter(r=>r.match==='Sale Only').length;
+  const settleOnly = D.reconRows.filter(r=>r.match==='Settlement Only').length;
+  const commPct = D.fwdTotAmt ? (-D.fwdTotComm/D.fwdTotAmt*100).toFixed(1) : 0;
+  const logPct  = D.fwdTotAmt ? (-D.fwdTotLog/D.fwdTotAmt*100).toFixed(1) : 0;
+  const netPct  = D.fwdTotAmt ? (D.fwdTotNet/D.fwdTotAmt*100).toFixed(1) : 0;
+
+  let alerts = '';
+  if (saleOnly>0) alerts += `<div class="alert alert-y">⚠️ <b>${saleOnly} orders</b> in Sale Report but not in Settlement — pending payout ya cancelled</div>`;
+  if (settleOnly>0) alerts += `<div class="alert alert-b">ℹ️ <b>${settleOnly} orders</b> in Settlement but not in Sale Report — different month ka overlap ho sakta hai</div>`;
+  if (D.retTotNet < 0) alerts += `<div class="alert alert-r">🔴 Return settlement negative <b>${inr(D.retTotNet)}</b> — logistics deduction (${inr(D.retTotLog)}) > commission reversal (${inr(D.retTotComm)})</div>`;
+  alerts += `<div class="alert alert-g">✅ <b>${matched} orders matched</b> between Sale Report and Settlement | Net Receivable: <b>${inr(D.netTotal)}</b></div>`;
+
+  const deductHtml = `
+    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(120px,1fr));gap:8px;margin-top:8px">
+      <div style="text-align:center;padding:10px;background:#FEE2E2;border-radius:8px"><div style="font-size:18px;font-weight:800;color:var(--red)">${commPct}%</div><div style="font-size:10px;color:var(--muted)">Commission</div></div>
+      <div style="text-align:center;padding:10px;background:#FEF9C3;border-radius:8px"><div style="font-size:18px;font-weight:800;color:#854D0E">${logPct}%</div><div style="font-size:10px;color:var(--muted)">Logistics</div></div>
+      <div style="text-align:center;padding:10px;background:#F1F5F9;border-radius:8px"><div style="font-size:18px;font-weight:800;color:var(--muted)">${D.fwdTotAmt?(D.fwdTotTCS/D.fwdTotAmt*100).toFixed(1):0}%</div><div style="font-size:10px;color:var(--muted)">TCS</div></div>
+      <div style="text-align:center;padding:10px;background:#F0FDF4;border-radius:8px"><div style="font-size:18px;font-weight:800;color:var(--green)">${netPct}%</div><div style="font-size:10px;color:var(--muted)">Net Payout</div></div>
+    </div>`;
+
+
+  // Profit summary from cost map
+  if (Object.keys(DATA.costMap||{}).length > 0) {
+    const fwd2=DATA.skuFwd||{}; const ret2=DATA.skuRet||{};
+    let totCOGS=0, totProfit=0, totNet2=0;
+    Object.keys(fwd2).forEach(sku=>{
+      const r=skuRow(sku,fwd2[sku],ret2[sku]);
+      if(r.totalCost!==null){totCOGS+=r.totalCost; totProfit+=(r.profit||0); totNet2+=r.net;}
+    });
+    const profitPct=totNet2?totProfit/totNet2*100:0;
+    document.getElementById('profit-kpis-section').style.display='';
+    document.getElementById('profit-kpis').innerHTML=
+      '<div class="kpi r"><div class="kpi-lbl">Total COGS</div><div class="kpi-val" style="font-size:15px">' + inr(totCOGS) + '</div><div class="kpi-sub">Cost Price × Qty</div></div>' +
+      '<div class="kpi g"><div class="kpi-lbl">Net Profit</div><div class="kpi-val" style="font-size:15px;color:'+(totProfit>0?'var(--green)':'var(--red)')+'">'+inr(totProfit)+'</div><div class="kpi-sub">Net Payout − COGS</div></div>' +
+      '<div class="kpi gold"><div class="kpi-lbl">Profit Margin</div><div class="kpi-val">'+profitPct.toFixed(1)+'%</div><div class="kpi-sub">Of gross seller amt</div></div>';
+  }
+  document.getElementById('pane-dashboard').innerHTML = `
+    ${kpiHtml}
+    <div class="section-hdr">Reconciliation Match Status</div>
+    <div class="kpi-row" style="margin-bottom:14px">
+      <div class="kpi g"><div class="kpi-lbl">Matched</div><div class="kpi-val">${matched.toLocaleString()}</div><div class="kpi-sub">Both reports</div></div>
+      <div class="kpi gold"><div class="kpi-lbl">Sale Only</div><div class="kpi-val">${saleOnly.toLocaleString()}</div><div class="kpi-sub">Not settled yet</div></div>
+      <div class="kpi p"><div class="kpi-lbl">Settlement Only</div><div class="kpi-val">${settleOnly.toLocaleString()}</div><div class="kpi-sub">No sale entry</div></div>
+    </div>
+    <div class="section-hdr">Key Observations</div>
+    <div style="margin-bottom:14px">${alerts}</div>
+    <div class="section-hdr">Deduction Breakdown (Forward Settlement)</div>
+    <div class="panel"><div class="panel-body">${deductHtml}</div></div>`;
+}
+
+// ── SETTLEMENT ────────────────────────────────────────────────
+function buildSettlement() {
+  const D = DATA;
+  document.getElementById('pane-settlement').innerHTML = `
+    <div class="section-hdr">Settlement Breakdown</div>
+    <div class="settle-2">
+      <div class="panel">
+        <div class="panel-hdr">📦 Forward Settlement (Delivered Orders)</div>
+        <div class="panel-body">
+          <div class="srow"><span>Seller Product Amount</span><span class="sv-g">${inr(D.fwdTotAmt)}</span></div>
+          <div class="srow"><span>Commission Deducted</span><span class="sv-r">${inr(D.fwdTotComm)}</span></div>
+          <div class="srow"><span>Logistics Deducted</span><span class="sv-r">${inr(D.fwdTotLog)}</span></div>
+          <div class="srow"><span>TCS Deducted</span><span class="sv-r">${inr(D.fwdTotTCS)}</span></div>
+          <div class="srow"><span>TDS Deducted</span><span class="sv-r">${inr(D.fwdTotTDS)}</span></div>
+          ${D.fwdTotPend ? `<div class="srow"><span>Pending Settlement</span><span style="color:var(--gold)">${inr(D.fwdTotPend)}</span></div>` : ''}
+          <div class="srow"><span>Net Payout (Forward)</span><span class="sv-g">${inr(D.fwdTotNet)}</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="panel-hdr">↩️ Return Settlement (Returned Orders)</div>
+        <div class="panel-body">
+          <div class="srow"><span>Seller Amount (Returns)</span><span>${inr(D.retTotAmt)}</span></div>
+          <div class="srow"><span>Commission Reversed</span><span class="sv-g">${inr(D.retTotComm)}</span></div>
+          <div class="srow"><span>Logistics (Return Ship)</span><span class="sv-r">${inr(D.retTotLog)}</span></div>
+          <div class="srow"><span>TCS</span><span class="sv-r">${inr(D.retTotTCS)}</span></div>
+          <div class="srow"><span>TDS</span><span class="sv-r">${inr(D.retTotTDS)}</span></div>
+          <div class="srow"><span>Net Settlement (Returns)</span><span class="${D.retTotNet<0?'sv-r':'sv-g'}">${inr(D.retTotNet)}</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-hdr">💰 Total Net Payout</div>
+      <div class="panel-body">
+        <div class="srow"><span>Forward Net Payout</span><span class="sv-g">${inr(D.fwdTotNet)}</span></div>
+        <div class="srow"><span>Return Settlement</span><span class="sv-r">${inr(D.retTotNet)}</span></div>
+        <div class="srow" style="font-size:15px"><span>🏦 NET RECEIVABLE</span><span class="${D.netTotal>0?'sv-g':'sv-r'}" style="font-size:18px;font-weight:800">${inr(D.netTotal)}</span></div>
+      </div>
+    </div>`;
+}
+
+// ── RECON TABLE ───────────────────────────────────────────────
+let reconFiltered = [];
+function buildRecon() {
+  reconFiltered = DATA.reconRows;
+  const pane = document.getElementById('pane-recon');
+  pane.innerHTML = `
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <input type="text" id="rs" placeholder="Search Order ID / SKU..." oninput="filterRecon()">
+        <select id="rm" onchange="filterRecon()">
+          <option value="">All Match Status</option>
+          <option>Matched ✓</option><option>Sale Only</option><option>Settlement Only</option>
+        </select>
+        <select id="rst" onchange="filterRecon()">
+          <option value="">All Status</option>
+          <option>Confirmed</option><option>Delivered</option><option>Cancelled</option>
+          <option>Shipped</option><option>RTO</option><option>Packed</option>
+        </select>
+        <span class="tbl-cnt" id="rc-cnt"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table><thead><tr>
+          <th>Order Release ID</th><th>SKU</th><th>Status</th>
+          <th>Order Date</th><th>Delivered Date</th><th>Payout Date</th>
+          <th>Days Gap</th><th class="r">Seller Price</th><th class="r">Commission</th><th class="r">Net Payout</th>
+          <th>Match</th>
+        </tr></thead><tbody id="rc-body"></tbody></table>
+      </div>
+      <div class="pager"><button onclick="pgRecon(-1)" id="rc-prev">◀ Prev</button><span id="rc-pg"></span><button onclick="pgRecon(1)" id="rc-next">Next ▶</button></div>
+    </div>`;
+  renderRecon();
+}
+
+function filterRecon() {
+  const s=(document.getElementById('rs')||{}).value?.toLowerCase()||'';
+  const m=(document.getElementById('rm')||{}).value||'';
+  const st=(document.getElementById('rst')||{}).value||'';
+  reconFiltered=DATA.reconRows.filter(r=>{
+    const txt=(r.oid+r.sku).toLowerCase();
+    return (!s||txt.includes(s))&&(!m||r.match===m)&&(!st||r.status===st);
+  });
+  PAGE.recon=0; renderRecon();
+}
+
+function renderRecon() {
+  const rows=reconFiltered.slice(PAGE.recon*PER,(PAGE.recon+1)*PER);
+  const body=document.getElementById('rc-body');
+  if (!body) return;
+  body.innerHTML=rows.map(r=>{
+    const matchCls=r.match==='Matched ✓'?'b-g':(r.match==='Sale Only'?'b-y':'b-p');
+    return `<tr>
+      <td style="font-size:10px">${r.oid}</td>
+      <td>${r.sku||'—'}</td>
+      <td>${statusBadge(r.statusRaw)}</td>
+      <td>${fmt(r.orderDate,'date')}</td>
+      <td>${fmt(r.deliveredDate,'date')}</td>
+      <td>${r.payoutDate?fmt(r.payoutDate,'date'):'—'}</td>
+      <td class="c">${r.daysGap!==null?r.daysGap+'d':'—'}</td>
+      <td class="r">${r.price?inr(r.price):'—'}</td>
+      <td class="r">${r.comm?`<span style="color:var(--red)">${inr(r.comm)}</span>`:'—'}</td>
+      <td class="r">${r.net?`<span style="color:${r.net>0?'var(--green)':'var(--red)}'>${inr(r.net)}</span>`:'—'}</td>
+      <td>${badge(r.match,matchCls)}</td>
+    </tr>`;
+  }).join('');
+  const tot=reconFiltered.length; const pg=PAGE.recon;
+  document.getElementById('rc-cnt').textContent=`${tot.toLocaleString()} records`;
+  document.getElementById('rc-pg').textContent=`${pg*PER+1}–${Math.min((pg+1)*PER,tot)} of ${tot}`;
+  document.getElementById('rc-prev').disabled=pg===0;
+  document.getElementById('rc-next').disabled=(pg+1)*PER>=tot;
+}
+function pgRecon(d){PAGE.recon+=d;renderRecon()}
+
+// ── RETURNS TABLE ─────────────────────────────────────────────
+let retFiltered=[];
+function buildReturns() {
+  retFiltered=DATA.rtnRows;
+  const custRet=DATA.rtnRows.filter(r=>r.status==='Return').length;
+  const rtoRet=DATA.rtnRows.filter(r=>r.status==='RTO').length;
+  const refY=DATA.rtnRows.filter(r=>r.isRefunded==='YES').length;
+
+  document.getElementById('pane-returns').innerHTML = DATA.rtnRows.length===0 ? `
+    <div class="alert alert-b">ℹ️ Returns Report file upload nahi hua — returns detail nahi dikhega. "New Files" tab se upload karo.</div>` : `
+    <div class="kpi-row" style="margin-bottom:12px">
+      <div class="kpi r"><div class="kpi-lbl">Customer Returns</div><div class="kpi-val">${custRet}</div></div>
+      <div class="kpi gold"><div class="kpi-lbl">RTO</div><div class="kpi-val">${rtoRet}</div></div>
+      <div class="kpi g"><div class="kpi-lbl">Commission Reversed</div><div class="kpi-val">${refY}</div><div class="kpi-sub">is_refunded = YES</div></div>
+    </div>
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <input type="text" id="rets" placeholder="Search Order / SKU / Reason..." oninput="filterRet()">
+        <select id="rettype" onchange="filterRet()"><option value="">All Types</option><option>Return</option><option>RTO</option></select>
+        <select id="retref" onchange="filterRet()"><option value="">All Refund</option><option>YES</option><option>NO</option></select>
+        <span class="tbl-cnt" id="ret-cnt"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table><thead><tr>
+          <th>Order ID</th><th>SKU</th><th>Type</th><th>Mode</th><th>Reason</th>
+          <th>Order Date</th><th>Delivered</th><th>Return Date</th><th>Refunded?</th><th class="c">Qty</th>
+        </tr></thead><tbody id="ret-body"></tbody></table>
+      </div>
+      <div class="pager"><button onclick="pgRet(-1)" id="ret-prev">◀ Prev</button><span id="ret-pg"></span><button onclick="pgRet(1)" id="ret-next">Next ▶</button></div>
+    </div>`;
+  renderRet();
+}
+
+function filterRet() {
+  const s=(document.getElementById('rets')||{}).value?.toLowerCase()||'';
+  const t=(document.getElementById('rettype')||{}).value||'';
+  const r=(document.getElementById('retref')||{}).value||'';
+  retFiltered=DATA.rtnRows.filter(x=>{
+    const txt=(x.orderId+x.sku+x.reason).toLowerCase();
+    return (!s||txt.includes(s))&&(!t||x.status===t)&&(!r||x.isRefunded===r);
+  });
+  PAGE.returns=0; renderRet();
+}
+
+function renderRet() {
+  const body=document.getElementById('ret-body');
+  if (!body) return;
+  const rows=retFiltered.slice(PAGE.returns*PER,(PAGE.returns+1)*PER);
+  body.innerHTML=rows.map(r=>`<tr>
+    <td style="font-size:10px">${r.orderId}</td><td>${r.sku||'—'}</td>
+    <td>${r.status==='RTO'?badge('RTO','b-r'):badge('Return','b-o')}</td>
+    <td>${r.mode||'—'}</td><td style="max-width:180px">${r.reason||'—'}</td>
+    <td>${fmt(r.orderDate,'date')}</td><td>${fmt(r.delivDate,'date')}</td>
+    <td>${fmt(r.retDate,'date')}</td>
+    <td>${r.isRefunded==='YES'?badge('YES ✓','b-g'):badge('NO ✗','b-r')}</td>
+    <td class="c">${r.qty}</td>
+  </tr>`).join('');
+  const tot=retFiltered.length; const pg=PAGE.returns;
+  (document.getElementById('ret-cnt')||{}).textContent=`${tot} records`;
+  (document.getElementById('ret-pg')||{}).textContent=`${pg*PER+1}–${Math.min((pg+1)*PER,tot)} of ${tot}`;
+  (document.getElementById('ret-prev')||{}).disabled=pg===0;
+  (document.getElementById('ret-next')||{}).disabled=(pg+1)*PER>=tot;
+}
+function pgRet(d){PAGE.returns+=d;renderRet()}
+
+
+function getCostForSKU(sku) {
+  const cmap = DATA.costMap || {};
+  return cmap[sku.toUpperCase()] || cmap[sku.split('/')[0].toUpperCase()] || null;
+}
+function skuRow(sku, fwd, ret) {
+  const fo=fwd?.fo||0, fa=fwd?.fa||0, fc=fwd?.fc||0, fl=fwd?.fl||0, fn=fwd?.fn||0;
+  const ro=ret?.ro||0, rc=ret?.rc||0, rn=ret?.rn||0;
+  const net=fn+rn, totalQty=fo+ro;
+  const costPU=getCostForSKU(sku);
+  const totalCost=costPU?costPU*totalQty:null;
+  const profit=totalCost!==null?net-totalCost:null;
+  const margin=(profit!==null&&fa)?profit/fa*100:null;
+  return {sku,fo,fa,fc,fl,fn,ro,rc,rn,net,totalQty,costPU,totalCost,profit,margin};
+}
+// ── SKU SUMMARY ───────────────────────────────────────────────
+let skuFiltered=[];
+function buildSKU() {
+  const fwd=DATA.skuFwd||{};
+  const ret=DATA.skuRet||{};
+  const allSKUs=[...new Set([...Object.keys(fwd),...Object.keys(ret)])].filter(s=>s);
+  skuFiltered=allSKUs.map(sku=>skuRow(sku,fwd[sku],ret[sku])).sort((a,b)=>b.net-a.net);
+
+  document.getElementById('pane-sku').innerHTML=`
+    <div class="tbl-wrap">
+      <div class="tbl-toolbar">
+        <input type="text" id="skus" placeholder="Search SKU..." oninput="filterSKU()">
+        <span class="tbl-cnt" id="sku-cnt"></span>
+      </div>
+      <div class="tbl-scroll">
+        <table><thead><tr>
+          <th>Dchica SKU</th>
+          <th class="r">Fwd Orders</th><th class="r">Seller Amt</th><th class="r">Commission</th><th class="r">Logistics</th><th class="r">Fwd Net</th><th class="r">Ret Orders</th><th class="r">Comm Rev.</th><th class="r">Ret Net</th><th class="r">NET TOTAL</th><th class="r" style="background:#5D4037">Cost/Unit</th><th class="r" style="background:#5D4037">Total COGS</th><th class="r" style="background:#1B5E20">Profit</th><th class="r" style="background:#1B5E20">Margin%</th>
+        </tr></thead><tbody id="sku-body"></tbody></table>
+      </div>
+      <div class="pager"><button onclick="pgSKU(-1)" id="sku-prev">◀ Prev</button><span id="sku-pg"></span><button onclick="pgSKU(1)" id="sku-next">Next ▶</button></div>
+    </div>`;
+  renderSKU();
+}
+
+function filterSKU() {
+  const s=(document.getElementById('skus')||{}).value?.toLowerCase()||'';
+  const fwd=DATA.skuFwd||{}; const ret=DATA.skuRet||{};
+  const allSKUs=[...new Set([...Object.keys(fwd),...Object.keys(ret)])].filter(k=>k);
+  skuFiltered=allSKUs.map(sku=>skuRow(sku,fwd[sku],ret[sku])).filter(r=>!s||r.sku.toLowerCase().includes(s)).sort((a,b)=>b.net-a.net);
+  PAGE.sku=0; renderSKU();
+}
+
+function renderSKU() {
+  const body=document.getElementById('sku-body'); if(!body) return;
+  const rows=skuFiltered.slice(PAGE.sku*PER,(PAGE.sku+1)*PER);
+  body.innerHTML=rows.map(r=>`<tr>
+    <td style="font-weight:700">${r.sku}</td>
+    <td class="r">${r.fo}</td>
+    <td class="r">${inr(r.fa)}</td>
+    <td class="r"><span style="color:var(--red)">${inr(r.fc)}</span></td>
+    <td class="r"><span style="color:var(--red)">${inr(r.fl)}</span></td>
+    <td class="r"><span style="color:${r.fn>0?'var(--green)':'var(--red)'}">${inr(r.fn)}</span></td>
+    <td class="r">${r.ro||'—'}</td>
+    <td class="r"><span style="color:var(--green)">${r.rc?inr(r.rc):'—'}</span></td>
+    <td class="r"><span style="color:${r.rn>0?'var(--green)':'var(--red)'}">${r.rn?inr(r.rn):'—'}</span></td>
+    <td class="r"><b style="color:${r.net>0?'var(--green)':'var(--red)'}">${inr(r.net)}</b></td>
+    <td class="r" style="background:#FFF8E1">${r.costPU !== null ? inr(r.costPU) : '<span style=\"color:#94a3b8;font-size:10px\">—</span>'}</td>
+    <td class="r">${r.totalCost !== null ? '<span style=\"color:var(--red)\">' + inr(r.totalCost) + '</span>' : '—'}</td>
+    <td class="r">${r.profit !== null ? '<b style=\"color:' + (r.profit > 0 ? 'var(--green)' : 'var(--red)') + '\">' + inr(r.profit) + '</b>' : '—'}</td>
+    <td class="r">${r.margin !== null ? '<b style=\"color:' + (r.margin > 0 ? 'var(--green)' : 'var(--red)') + '\">' + r.margin.toFixed(1) + '%</b>' : '—'}</td>
+  </tr>`).join('');
+  const tot=skuFiltered.length; const pg=PAGE.sku;
+  (document.getElementById('sku-cnt')||{}).textContent=`${tot} SKUs`;
+  (document.getElementById('sku-pg')||{}).textContent=`${pg*PER+1}–${Math.min((pg+1)*PER,tot)} of ${tot}`;
+  (document.getElementById('sku-prev')||{}).disabled=pg===0;
+  (document.getElementById('sku-next')||{}).disabled=(pg+1)*PER>=tot;
+}
+function pgSKU(d){PAGE.sku+=d;renderSKU()}
+
+function showTab(name, el) {
+  document.querySelectorAll('[id^="pane-"]').forEach(p=>p.style.display='none');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  document.getElementById('pane-'+name).style.display='';
+  el.classList.add('active');
+  if (name==='upload') {
+    document.getElementById('pane-upload').style.display='';
+  }
+}
+
+function resetTool() {
+  document.getElementById('tool').style.display='none';
+  document.getElementById('upload-screen').style.display='';
+}
+</script>
+</body>
+</html>
